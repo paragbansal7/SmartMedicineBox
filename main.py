@@ -1,9 +1,12 @@
 import bluetooth
 import time
 import json
+import gc
 from machine import Pin, PWM, I2C
 from ble_uart import BLEUART
 import ds3231
+
+time.sleep(1.5)
 
 # ── PIN SETUP ─────────────────────────────────────────────────
 i2c    = I2C(0, sda=Pin(21), scl=Pin(22), freq=400000)
@@ -28,7 +31,8 @@ ble  = bluetooth.BLE()
 uart = BLEUART(ble, name="MedBox")
 
 # ── FLASH FILE FUNCTIONS ───────────────────────────────────────
-ALARM_FILE = "alarms.json"
+ALARM_FILE   = "alarms.json"
+HISTORY_FILE = "history.json"   # ← NEW
 
 def save_alarms():
     try:
@@ -61,20 +65,118 @@ def clear_alarm_file():
     except:
         pass
 
+# ── NEW: OFFLINE HISTORY FUNCTIONS ────────────────────────────
+
+def get_rtc_timestamp():
+    """Returns current RTC time as ISO string: 2026-03-22T14:30:00"""
+    try:
+        dt = rtc.datetime()
+        return "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(
+            dt[0], dt[1], dt[2], dt[4], dt[5], dt[6])
+    except:
+        return "0000-00-00T00:00:00"
+
+def append_history(led_key, status):
+    """
+    Appends one event to history.json on flash.
+    Each entry: {"led": "LED1", "slot": 1, "status": "TAKEN", "ts": "2026-03-22T14:30:00"}
+    File is a JSON array.
+    """
+    try:
+        # Load existing history
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                history = json.load(f)
+        except OSError:
+            history = []
+
+        # Parse slot number from led_key e.g. "LED1" → 1
+        slot = int(led_key.replace("LED", "")) if led_key.startswith("LED") else 0
+
+        # Build new entry
+        entry = {
+            "led"    : led_key,
+            "slot"   : slot,
+            "status" : status,
+            "ts"     : get_rtc_timestamp()
+        }
+
+        history.append(entry)
+
+        # Write back
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f)
+
+        print("History saved:", entry)
+
+    except Exception as e:
+        print("append_history error:", e)
+
+def load_history():
+    """Loads all offline history entries from flash."""
+    try:
+        with open(HISTORY_FILE, "r") as f:
+            return json.load(f)
+    except OSError:
+        return []
+    except Exception as e:
+        print("load_history error:", e)
+        return []
+
+def clear_history_file():
+    """Deletes history.json from flash after Android confirms sync."""
+    try:
+        import os
+        os.remove(HISTORY_FILE)
+        print("history.json deleted from flash")
+    except:
+        pass
+
+def send_history_to_android():
+    """
+    Sends all offline history entries to Android one by one.
+    Format per line:
+      LOG:LED1,1,TAKEN,2026-03-22T14:30:00\n
+    Sends LOG:END\n when done.
+    """
+    history = load_history()
+    if not history:
+        uart.write(b"LOG:EMPTY\n")
+        print("No offline history to sync")
+        return
+
+    print("Sending", len(history), "offline history entries...")
+    for entry in history:
+        line = "LOG:{},{},{},{}\n".format(
+            entry.get("led",    "LED0"),
+            entry.get("slot",   0),
+            entry.get("status", "UNKNOWN"),
+            entry.get("ts",     "0000-00-00T00:00:00")
+        )
+        uart.write(line.encode())
+        time.sleep_ms(50)   # small gap between entries
+        print("Sent:", line.strip())
+
+    uart.write(b"LOG:END\n")
+    print("All history sent to Android")
+
 # ── STATE ─────────────────────────────────────────────────────
-alarm_schedule       = load_alarms()  # load from flash on boot
+rx_stream            = ""
+alarm_schedule       = load_alarms()
 alarm_active         = False
 alarm_led_key        = None
 alarm_start_time     = 0
-alarm_triggered_key  = -1            # prevents re-trigger same minute
+alarm_triggered_key  = -1
 
 last_time_check      = 0
 last_blink_time      = 0
+last_gc_time         = 0
 blink_state          = False
 
-TIME_CHECK_INTERVAL  = 1000          # ms — check RTC every second
-BLINK_INTERVAL       = 300           # ms — LED blink speed
-MISSED_TIMEOUT       = 5 * 60 * 1000 # 5 minutes in ms
+TIME_CHECK_INTERVAL  = 1000
+BLINK_INTERVAL       = 300
+MISSED_TIMEOUT       = 5 * 60 * 1000
+GC_INTERVAL          = 10000
 
 # ── PRINT BOOT INFO ───────────────────────────────────────────
 try:
@@ -87,26 +189,21 @@ except Exception as e:
 print("Loaded alarms:", alarm_schedule)
 
 # ── BLE MESSAGE PARSER ────────────────────────────────────────
-def parse_message(raw):
+def parse_message(msg):
     global alarm_schedule
     try:
-        msg = raw.decode("utf-8").strip()
-        print("BLE RX:", msg)
+        print("BLE RX Complete Command:", msg)
 
-        # ── TIME SYNC ─────────────────────────────────────
-        # FORMAT: TIME:2026,03,22,7,14,30,0,0
         if msg.startswith("TIME:"):
             parts = msg[5:].split(",")
             if len(parts) == 8:
                 t = tuple(int(x) for x in parts)
                 rtc.datetime(t)
                 uart.write(b"ACK:TIME_SET\n")
-                print("RTC updated:", t)
+                print(">>> RTC updated successfully:", t)
             else:
                 uart.write(b"ERR:TIME_FORMAT\n")
 
-        # ── SET ALARM ─────────────────────────────────────
-        # FORMAT: ALARM:LED1,08,00
         elif msg.startswith("ALARM:"):
             parts = msg[6:].split(",")
             if len(parts) == 3:
@@ -120,37 +217,29 @@ def parse_message(raw):
                     save_alarms()
                     uart.write(
                         ("ACK:ALARM_SET:" + led_key + "\n").encode())
-                    print("Alarm set:", led_key,
+                    print(">>> Alarm set:", led_key,
                           "{:02d}:{:02d}".format(hour, minute))
-                    print("All alarms:", alarm_schedule)
                 else:
                     uart.write(b"ERR:ALARM_INVALID\n")
             else:
                 uart.write(b"ERR:ALARM_FORMAT\n")
 
-        # ── CLEAR ALL ALARMS ──────────────────────────────
-        # FORMAT: CLEAR:ALL
         elif msg.startswith("CLEAR:ALL"):
             alarm_schedule.clear()
             clear_alarm_file()
             uart.write(b"ACK:CLEAR_ALL\n")
-            print("All alarms cleared")
+            print(">>> All alarms cleared")
 
-        # ── CLEAR SPECIFIC ALARM ──────────────────────────
-        # FORMAT: CLEAR:LED2
         elif msg.startswith("CLEAR:"):
             led_key = msg[6:].upper()
             if led_key in alarm_schedule:
                 del alarm_schedule[led_key]
                 save_alarms()
-                uart.write(
-                    ("ACK:CLEAR:" + led_key + "\n").encode())
-                print("Cleared alarm:", led_key)
+                uart.write(("ACK:CLEAR:" + led_key + "\n").encode())
+                print(">>> Cleared alarm:", led_key)
             else:
                 uart.write(b"ERR:NOT_FOUND\n")
 
-        # ── STATUS REQUEST ────────────────────────────────
-        # FORMAT: STATUS
         elif msg.startswith("STATUS"):
             try:
                 dt     = rtc.datetime()
@@ -163,31 +252,39 @@ def parse_message(raw):
                     key, val[0], val[1])
             status += "\n"
             uart.write(status.encode())
-            print("Status sent:", status.strip())
+            print(">>> Status sent:", status.strip())
 
-        # ── MANUAL TEST TRIGGER ───────────────────────────
-        # FORMAT: TEST:LED1
         elif msg.startswith("TEST:"):
             led_key = msg[5:].upper().strip()
             if led_key in LED_PINS:
-                print("Manual TEST trigger:", led_key)
+                print(">>> Manual TEST trigger:", led_key)
                 start_alarm(led_key)
-                uart.write(
-                    ("ACK:TEST:" + led_key + "\n").encode())
+                uart.write(("ACK:TEST:" + led_key + "\n").encode())
             else:
                 uart.write(b"ERR:LED_NOT_FOUND\n")
 
-        # ── UNKNOWN COMMAND ───────────────────────────────
+        # ── NEW: Offline sync commands ─────────────────────
+        elif msg.startswith("SYNC_LOGS"):
+            # Android requesting all missed offline history
+            print(">>> Android requesting offline sync...")
+            send_history_to_android()
+
+        elif msg.startswith("CLEAR_LOGS"):
+            # Android confirmed it received all logs — safe to delete
+            clear_history_file()
+            uart.write(b"ACK:LOGS_CLEARED\n")
+            print(">>> history.json cleared on Android confirmation")
+
         else:
             uart.write(b"ERR:UNKNOWN\n")
-            print("Unknown command:", msg)
+            print("Unknown command ignored:", msg)
 
     except Exception as e:
-        print("Parse error:", e)
+        print("Parse error:", msg, "->", e)
         uart.write(b"ERR:PARSE\n")
 
 def on_ble_rx():
-    pass  # data buffered — processed in main loop
+    pass
 
 uart.irq_handler(on_ble_rx)
 
@@ -204,34 +301,35 @@ def start_alarm(led_key):
 
 def stop_alarm(reason="BUTTON"):
     global alarm_active, alarm_led_key, blink_state
-
     stopped_led  = alarm_led_key
     alarm_active = False
     blink_state  = False
 
-    # Turn off LED
     if alarm_led_key and alarm_led_key in LED_PINS:
         LED_PINS[alarm_led_key].value(0)
-
     alarm_led_key = None
-
-    # Stop buzzer
     buzzer.duty(0)
-
     print(">>> ALARM STOPPED ({}) LED: {}".format(reason, stopped_led))
 
-    # Notify Android app
     if stopped_led:
         if reason == "BUTTON":
-            # User pressed button → TAKEN
-            uart.write(("TAKEN:" + stopped_led + "\n").encode())
-            print("Sent TAKEN:", stopped_led)
-        elif reason == "TIMEOUT":
-            # 5 min expired → MISSED
-            uart.write(("MISSED:" + stopped_led + "\n").encode())
-            print("Sent MISSED:", stopped_led)
+            # ── Try BLE first, save to flash as fallback ──
+            if uart.is_connected():
+                uart.write(("TAKEN:" + stopped_led + "\n").encode())
+                print("Sent TAKEN via BLE:", stopped_led)
+            else:
+                append_history(stopped_led, "TAKEN")
+                print("BLE offline — saved TAKEN to history.json")
 
-# ── MELODY HELPER ─────────────────────────────────────────────
+        elif reason == "TIMEOUT":
+            # ── Try BLE first, save to flash as fallback ──
+            if uart.is_connected():
+                uart.write(("MISSED:" + stopped_led + "\n").encode())
+                print("Sent MISSED via BLE:", stopped_led)
+            else:
+                append_history(stopped_led, "MISSED")
+                print("BLE offline — saved MISSED to history.json")
+
 def beep(freq=1000, duration_ms=100):
     buzzer.freq(freq)
     buzzer.duty(512)
@@ -240,40 +338,48 @@ def beep(freq=1000, duration_ms=100):
     time.sleep_ms(50)
 
 # ── MAIN LOOP ─────────────────────────────────────────────────
-print("Smart Medicine Box ready!")
+print("\n=== Smart Medicine Box Ready ===")
 print("BLE broadcasting as MedBox")
-print("Stored alarms:", alarm_schedule)
 
-# Startup beep — confirms device is alive
 beep(1000, 100)
 time.sleep_ms(100)
 beep(1500, 100)
 
 while True:
-    now_ms = time.ticks_ms()
+    try:
+        now_ms = time.ticks_ms()
 
-    # ── 1. Process BLE messages ───────────────────────────────
-    if uart.any():
-        data = uart.read()
-        if data:
-            parse_message(data)
+        # ── 1. Process BLE messages (MTU Stream Buffer) ───────
+        if uart.any():
+            data = uart.read()
+            if data:
+                rx_stream += data.decode("utf-8", "ignore")
 
-    # ── 2. Check RTC every second ─────────────────────────────
-    if time.ticks_diff(now_ms, last_time_check) >= TIME_CHECK_INTERVAL:
-        last_time_check = now_ms
-        try:
+                for cmd in ["TIME:", "ALARM:", "CLEAR:", "STATUS",
+                            "TEST:", "SYNC_LOGS", "CLEAR_LOGS"]:
+                    rx_stream = rx_stream.replace(cmd, "\n" + cmd)
+
+                rx_stream = rx_stream.replace("\n\n", "\n")
+
+                while "\n" in rx_stream:
+                    line, rx_stream = rx_stream.split("\n", 1)
+                    line = line.strip()
+                    if line:
+                        parse_message(line)
+
+        # ── 2. Check RTC every second ─────────────────────────
+        if time.ticks_diff(now_ms, last_time_check) >= TIME_CHECK_INTERVAL:
+            last_time_check = now_ms
             dt             = rtc.datetime()
             current_hour   = dt[4]
             current_minute = dt[5]
             current_second = dt[6]
 
-            # Debug print every 10 seconds
             if current_second % 10 == 0:
                 print("Time: {:02d}:{:02d}:{:02d} | Alarms: {}".format(
                     current_hour, current_minute,
                     current_second, alarm_schedule))
 
-            # Trigger alarm at second == 0
             if current_second == 0 and not alarm_active:
                 for led_key, (a_hour, a_min) in alarm_schedule.items():
                     trigger_key = a_hour * 100 + a_min
@@ -284,80 +390,37 @@ while True:
                         start_alarm(led_key)
                         break
 
-        except Exception as e:
-            print("RTC error:", e)
+        # ── 3. Blink LED while alarm active ──────────────────
+        if alarm_active:
+            if time.ticks_diff(now_ms, last_blink_time) >= BLINK_INTERVAL:
+                last_blink_time = now_ms
+                blink_state     = not blink_state
+                if alarm_led_key and alarm_led_key in LED_PINS:
+                    LED_PINS[alarm_led_key].value(
+                        1 if blink_state else 0)
 
+        # ── 4. Auto MISSED after 5 minutes ───────────────────
+        if alarm_active:
+            elapsed = time.ticks_diff(now_ms, alarm_start_time)
+            if elapsed >= MISSED_TIMEOUT:
+                stop_alarm(reason="TIMEOUT")
 
-    # ── 3. Blink LED while alarm active ──────────────────────
-    if alarm_active:
-        if time.ticks_diff(now_ms, last_blink_time) >= BLINK_INTERVAL:
-            last_blink_time = now_ms
-            blink_state     = not blink_state
-            if alarm_led_key and alarm_led_key in LED_PINS:
-                LED_PINS[alarm_led_key].value(
-                    1 if blink_state else 0)
+        # ── 5. Check button press (active LOW) ───────────────
+        if alarm_active and button.value() == 0:
+            time.sleep_ms(50)
+            if button.value() == 0:
+                stop_alarm(reason="BUTTON")
+                while button.value() == 0:
+                    time.sleep_ms(10)
 
-    # ── 4. Auto MISSED after 5 minutes ───────────────────────
-    if alarm_active:
-        elapsed = time.ticks_diff(now_ms, alarm_start_time)
-        if elapsed >= MISSED_TIMEOUT:
-            print(">>> 5 MIN TIMEOUT — marking as MISSED")
-            stop_alarm(reason="TIMEOUT")
+        # ── 6. Garbage Collection ─────────────────────────────
+        if time.ticks_diff(now_ms, last_gc_time) >= GC_INTERVAL:
+            last_gc_time = now_ms
+            gc.collect()
 
-    # ── 5. Check button press (active LOW) ───────────────────
-    if alarm_active and button.value() == 0:
-        time.sleep_ms(50)  # debounce
-        if button.value() == 0:
-            stop_alarm(reason="BUTTON")
-            # Wait for button release
-            while button.value() == 0:
-                time.sleep_ms(10)
+        # ── 7. Tiny sleep ─────────────────────────────────────
+        time.sleep_ms(10)
 
-    # ── 6. Tiny sleep to yield CPU ───────────────────────────
-    time.sleep_ms(10)
-'''
-
----
-
-### ✅ Complete Feature List
-
-| Feature | Status |
-|---|---|
-| BLE UART service | ✅ Nordic UART |
-| 31-byte limit fix | ✅ No UUID in payload, name = "MedBox" |
-| Safe BLE init | ✅ active(False) → sleep → active(True) |
-| Time sync | ✅ `TIME:` command |
-| Set alarm | ✅ `ALARM:LED1,08,00` |
-| Clear alarm | ✅ `CLEAR:LED1` / `CLEAR:ALL` |
-| Status request | ✅ `STATUS` |
-| Manual test | ✅ `TEST:LED1` |
-| Flash persistence | ✅ `alarms.json` survives power off |
-| LED blinking | ✅ 300ms interval |
-| Buzzer | ✅ PWM 1000Hz duty 512 |
-| Button debounce | ✅ 50ms |
-| Auto MISSED (5 min) | ✅ Sends `MISSED:LED1` to Android |
-| Button taken | ✅ Sends `TAKEN:LED1` to Android |
-| Daily repeat | ✅ `alarm_triggered_key` resets each day |
-| Startup beep | ✅ Confirms device alive |
-| Debug prints | ✅ Every 10 seconds |
-
-### Flash order:
-```
-1. ble_uart.py  → save to ESP32 first
-2. main.py      → save to ESP32 second
-3. Press F5     → run
-```
-
-Shell should print:
-
-Booting BLE...
-Resetting BLE...
-Activating BLE...
-Registering GATT services...
-Starting BLE advertising...
-BLE advertising OK!
-RTC time: 2026-03-22 14:30:00
-Loaded alarms: {}
-Smart Medicine Box ready!
-BLE broadcasting as MedBox
-'''
+    except Exception as e:
+        print("CRITICAL LOOP ERROR:", e)
+        time.sleep_ms(1000)

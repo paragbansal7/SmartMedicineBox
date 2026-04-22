@@ -23,13 +23,12 @@ _UART_SERVICE = (_UART_UUID, (_TX_CHAR, _RX_CHAR,),)
 
 class BLEUART:
     def __init__(self, ble, name="MedBox", rxbuf=256):
-        self._ble      = ble
-        self._name     = name
+        self._ble         = ble
+        self._name        = name
         self._connections = set()
         self._rx_buffer   = bytearray()
         self._handler     = None
 
-        # ── Safe BLE reset ────────────────────────────────
         print("Resetting BLE...")
         try:
             self._ble.active(False)
@@ -41,20 +40,17 @@ class BLEUART:
         self._ble.active(True)
         time.sleep(2)
 
-        # ── Register IRQ ──────────────────────────────────
         self._ble.irq(self._irq)
 
-        # ── Register GATT services ────────────────────────
         print("Registering GATT services...")
         ((self._tx_handle, self._rx_handle),) = \
             self._ble.gatts_register_services((_UART_SERVICE,))
-        self._ble.gatts_set_buffer(self._rx_handle, rxbuf)
+        
+        # True appended for buffer overflow protection
+        self._ble.gatts_set_buffer(self._rx_handle, rxbuf, True)
 
-        # ── Build advertising payload ──────────────────────
-        # NOTE: No UUID in payload — avoids 31-byte BLE limit
         self._payload = self._advertising_payload(name=name)
 
-        # ── Start advertising ─────────────────────────────
         print("Starting BLE advertising...")
         self._advertise()
 
@@ -79,7 +75,7 @@ class BLEUART:
             if attr_handle == self._rx_handle:
                 incoming = self._ble.gatts_read(self._rx_handle)
                 if incoming:
-                    self._rx_buffer += incoming
+                    self._rx_buffer.extend(incoming) 
                     if self._handler:
                         self._handler()
 
@@ -128,21 +124,13 @@ class BLEUART:
                 time.sleep_ms(500)
         print("ERROR: Could not start BLE advertising")
 
-    def _advertising_payload(self, limited_disc=False,
-                              br_edr=False, name=None):
+    def _advertising_payload(self, limited_disc=False, br_edr=False, name=None):
         payload = bytearray()
-
         def _append(adv_type, value):
             nonlocal payload
-            payload += struct.pack(
-                "BB", len(value) + 1, adv_type) + value
+            payload += struct.pack("BB", len(value) + 1, adv_type) + value
 
-        _append(0x01, struct.pack("B",
-            (0x01 if limited_disc else 0x02) +
-            (0x18 if br_edr else 0x04)
-        ))
-
+        _append(0x01, struct.pack("B", (0x01 if limited_disc else 0x02) + (0x18 if br_edr else 0x04)))
         if name:
             _append(0x09, name.encode())
-
         return payload
