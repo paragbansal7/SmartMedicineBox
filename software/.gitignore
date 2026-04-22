@@ -1,0 +1,33 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+# Android Studio / IntelliJ specific
+.idea/
+*.ipr
+*.iws
+
+# Gradle specific
+.gradle/
+build/
+
+# Hardware / Secret Keys (Important!)
+# If you eventually add a google-services.json for Firebase or local API keys:
+local.properties
+secrets.properties
+google-services.json
+
+# Local configuration
+.cxx/
+.externalNativeBuild/

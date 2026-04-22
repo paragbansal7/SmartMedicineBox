@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="colorPrimary">#1565C0</color>
+    <color name="colorPrimaryDark">#0D47A1</color>
+    <color name="colorAccent">#29B6F6</color>
+
+    <!-- Light mode UI -->
+    <color name="pageBackground">#F0F4F8</color>
+    <color name="windowBackground">#F0F4F8</color>
+    <color name="navBarColor">#F0F4F8</color>
+    <color name="cardBackground">#FFFFFF</color>
+    <color name="sectionText">#9E9E9E</color>
+    <color name="inputBackground">#FFFFFF</color>
+    <color name="inputStroke">#BBDEFB</color>
+    <color name="inputText">#1A1A1A</color>
+    <color name="labelText">#1565C0</color>
+
+    <!-- Status colors -->
+    <color name="statusTaken">#388E3C</color>
+    <color name="statusPending">#D32F2F</color>
+    <color name="statusMissed">#F9A825</color>
+    <color name="statusTakenBg">#E8F5E9</color>
+    <color name="statusPendingBg">#E3F2FD</color>
+    <color name="statusMissedBg">#FFFDE7</color>
+
+    <!-- BLE Banner Light -->
+    <color name="bleBannerConnectedBg">#E3F2FD</color>
+    <color name="bleBannerConnectedBorder">#90CAF9</color>
+    <color name="bleBannerConnectedTitle">#0D47A1</color>
+    <color name="bleBannerConnectedDesc">#1565C0</color>
+    <color name="bleBannerDisconnectedBg">#FFF3E0</color>
+    <color name="bleBannerDisconnectedTitle">#E65100</color>
+    <color name="bleBannerDisconnectedDesc">#BF360C</color>
+
+    <!-- Dialog action buttons Light -->
+    <color name="btnDeleteBg">#FFEBEE</color>
+    <color name="btnDeleteBorder">#FFCDD2</color>
+    <color name="btnDeleteText">#C62828</color>
+
+    <color name="btnTakenBg">#E8F5E9</color>
+    <color name="btnTakenBorder">#A5D6A7</color>
+    <color name="btnTakenText">#1B5E20</color>
+
+    <color name="btnEditBg">#E3F2FD</color>
+    <color name="btnEditBorder">#90CAF9</color>
+    <color name="btnEditText">#0D47A1</color>
+
+    <color name="btnCloseBg">#F5F5F5</color>
+    <color name="btnCloseText">#9E9E9E</color>
+</resources>

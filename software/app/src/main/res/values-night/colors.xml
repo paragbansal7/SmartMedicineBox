@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="colorPrimary">#1565C0</color>
+    <color name="colorPrimaryDark">#0D47A1</color>
+    <color name="colorAccent">#29B6F6</color>
+
+    <!-- Dark mode UI -->
+    <color name="pageBackground">#121212</color>
+    <color name="windowBackground">#121212</color>
+    <color name="navBarColor">#121212</color>
+    <color name="cardBackground">#1E1E1E</color>
+    <color name="sectionText">#757575</color>
+    <color name="inputBackground">#1E1E1E</color>
+    <color name="inputStroke">#1565C0</color>
+    <color name="inputText">#FFFFFF</color>
+    <color name="labelText">#90CAF9</color>
+
+    <!-- Status colors dark -->
+    <color name="statusTaken">#388E3C</color>
+    <color name="statusPending">#1976D2</color>
+    <color name="statusMissed">#F9A825</color>
+    <color name="statusTakenBg">#1B3A1C</color>
+    <color name="statusPendingBg">#0D2A4A</color>
+    <color name="statusMissedBg">#3A2E00</color>
+
+    <!-- BLE Banner Dark -->
+    <color name="bleBannerConnectedBg">#002A4A</color>
+    <color name="bleBannerConnectedBorder">#1565C0</color>
+    <color name="bleBannerConnectedTitle">#90CAF9</color>
+    <color name="bleBannerConnectedDesc">#42A5F5</color>
+    <color name="bleBannerDisconnectedBg">#2A1A00</color>
+    <color name="bleBannerDisconnectedTitle">#FFAB40</color>
+    <color name="bleBannerDisconnectedDesc">#FF8F00</color>
+
+    <!-- Dialog action buttons Dark -->
+    <color name="btnDeleteBg">#3E1010</color>
+    <color name="btnDeleteBorder">#7F1F1F</color>
+    <color name="btnDeleteText">#EF9A9A</color>
+
+    <color name="btnTakenBg">#0F2E12</color>
+    <color name="btnTakenBorder">#2E7D32</color>
+    <color name="btnTakenText">#A5D6A7</color>
+
+    <color name="btnEditBg">#0D2A4A</color>
+    <color name="btnEditBorder">#1565C0</color>
+    <color name="btnEditText">#90CAF9</color>
+
+    <color name="btnCloseBg">#2A2A2A</color>
+    <color name="btnCloseText">#757575</color>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smart Medicine Box</string>
+    <string name="subtitle_medicines">Your daily medicine schedule</string>
+</resources>

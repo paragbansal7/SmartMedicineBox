@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="10dp">
+
+    <!-- Box Number -->
+    <TextView
+        android:id="@+id/tvBoxNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="BOX 1"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:textColor="#9E9E9E"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Category Icon -->
+    <TextView
+        android:id="@+id/tvCompIcon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+"
+        android:textSize="24sp"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Medicine Name -->
+    <TextView
+        android:id="@+id/tvCompName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Empty"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- Scheduled Time -->
+    <TextView
+        android:id="@+id/tvCompTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tap to add"
+        android:textSize="10sp"
+        android:layout_marginTop="2dp" />
+
+    <!-- Stock Remaining — hidden for empty compartments -->
+    <TextView
+        android:id="@+id/tvCompStock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="30 left"
+        android:textSize="10sp"
+        android:textColor="#9E9E9E"
+        android:layout_marginTop="3dp"
+        android:visibility="gone" />
+
+</LinearLayout>

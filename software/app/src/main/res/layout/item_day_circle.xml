@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="4dp">
+
+    <TextView
+        android:id="@+id/tvDayName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MON"
+        android:textSize="9sp"
+        android:textColor="#B3FFFFFF"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:id="@+id/tvDayNum"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:gravity="center"
+        android:text="1"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white" />
+
+    <View
+        android:id="@+id/viewDot"
+        android:layout_width="5dp"
+        android:layout_height="5dp"
+        android:background="#66BB6A"
+        android:layout_marginTop="3dp"
+        android:visibility="invisible" />
+
+</LinearLayout>

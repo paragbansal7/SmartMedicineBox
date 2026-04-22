@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer soft circle -->
+    <path
+        android:fillColor="#FFCDD2"
+        android:pathData="M54,6 Q92,6 102,44 Q112,82 82,98 Q52,114 22,98 Q-8,82 2,44 Q12,6 54,6 Z"/>
+
+    <!-- White circle background -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,10 Q90,10 100,46 Q110,82 80,97 Q50,112 22,97 Q-6,82 4,46 Q14,10 54,10 Z"/>
+
+    <!-- Subtle inner ring -->
+    <path
+        android:fillColor="#FFEBEE"
+        android:pathData="M54,14 Q88,14 97,48 Q106,82 78,96 Q50,110 24,96 Q-2,82 8,48 Q18,14 54,14 Z"/>
+
+    <!-- Red cross vertical -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M44,22 Q44,18 48,18 L60,18 Q64,18 64,22 L64,86 Q64,90 60,90 L48,90 Q44,90 44,86 Z"/>
+
+    <!-- Red cross horizontal -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M22,44 Q22,40 26,40 L82,40 Q86,40 86,44 L86,64 Q86,68 82,68 L26,68 Q22,68 22,64 Z"/>
+
+    <!-- Cross inner highlight vertical -->
+    <path
+        android:fillColor="#EF5350"
+        android:fillAlpha="0.4"
+        android:pathData="M48,22 Q48,20 50,20 L58,20 Q60,20 60,22 L60,86 Q60,88 58,88 L50,88 Q48,88 48,86 Z"/>
+
+    <!-- Cross inner highlight horizontal -->
+    <path
+        android:fillColor="#EF5350"
+        android:fillAlpha="0.4"
+        android:pathData="M22,48 Q22,46 24,46 L84,46 Q86,46 86,48 L86,60 Q86,62 84,62 L24,62 Q22,62 22,60 Z"/>
+
+    <!-- Center square shine -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M48,40 L60,40 L60,68 L48,68 Z"/>
+
+</vector>
